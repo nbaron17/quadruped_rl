@@ -1,0 +1,165 @@
+<mujoco model="quadruped">
+
+  <!-- Global simulation options -->
+  <option timestep="0.002" gravity="0 0 -9.81" iterations="50" solver="Newton"/>
+
+  <!-- Compiler settings -->
+  <compiler angle="radian" autolimits="true"/>
+
+  <!-- Default geometry and joint properties -->
+  <default>
+    <joint damping="0.01" armature="0.01" limited="true"/>
+    <geom condim="3" friction="0.8 0.02 0.01" rgba="0.6 0.6 0.6 1"/>
+    <motor ctrllimited="true" ctrlrange="-33.5 33.5" gear="1"/>
+  </default>
+
+  <!-- Ground plane + sky -->
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.8" rgb2="0 0 0" width="512" height="512"/>
+    <texture name="grid" type="2d" builtin="checker" rgb1=".1 .2 .3" rgb2=".2 .3 .4" width="300" height="300" mark="none"/>
+    <material name="grid" texture="grid" texrepeat="1 1" texuniform="true" reflectance=".2"/>
+  </asset>
+
+  <!-- World -->
+  <worldbody>
+    <light directional="true" diffuse=".8 .8 .8" specular=".2 .2 .2" pos="0 0 4" dir="0 0 -1"/>
+    <geom name="floor" type="plane" size="10 10 0.1" pos="0 0 0" material="grid"/>
+
+    <!-- ================================================================= -->
+    <!-- BASE BODY (trunk)                                                   -->
+    <!-- ================================================================= -->
+    <body name="base" pos="0 0 0.33">
+
+      <!-- 6-DOF freejoint lets the body float freely (training in free space) -->
+      <freejoint name="root"/>
+
+      <!-- Trunk mass ~4.71 kg, dimensions approximate A1 -->
+      <inertial pos="0 0 0" mass="4.71"
+                diaginertia="0.0158533 0.0377999 0.0456542"/>
+      <geom name="trunk" type="box" size="0.1875 0.049 0.057" rgba="0.3 0.4 0.7 1"/>
+
+      <!-- IMU site (where we read angular velocity and orientation) -->
+      <site name="imu" pos="0 0 0"/>
+
+      <!-- ============================================================= -->
+      <!-- FRONT RIGHT LEG (FR)                                           -->
+      <!-- ============================================================= -->
+      <body name="FR_hip" pos="0.1805 -0.047 0">
+        <joint name="FR_hip_joint" type="hinge" axis="1 0 0" range="-0.916 0.916"/>
+        <inertial pos="0 0 0" mass="0.696" diaginertia="0.000871 0.00173 0.00173"/>
+        <geom type="capsule" size="0.046 0.028" pos="0 -0.08 0" quat="1 0 0 0"/>
+
+        <body name="FR_thigh" pos="0 -0.0838 0">
+          <joint name="FR_thigh_joint" type="hinge" axis="0 1 0" range="-1.745 4.189"/>
+          <inertial pos="0 0 -0.1" mass="1.013" diaginertia="0.00550 0.00550 0.000589"/>
+          <geom type="capsule" size="0.034 0.1" pos="0 0 -0.1" quat="1 0 0 0" rgba="0.4 0.6 0.4 1"/>
+
+          <body name="FR_calf" pos="0 0 -0.2">
+            <joint name="FR_calf_joint" type="hinge" axis="0 1 0" range="-2.775 -0.646"/>
+            <inertial pos="0 0 -0.1" mass="0.226" diaginertia="0.000215 0.000215 0.0000135"/>
+            <geom type="capsule" size="0.022 0.1" pos="0 0 -0.1" rgba="0.2 0.2 0.5 1"/>
+            <!-- Foot contact sphere -->
+            <geom name="FR_foot" type="sphere" size="0.022" pos="0 0 -0.2"
+                  rgba="0.9 0.3 0.3 1" condim="6"/>
+          </body>
+        </body>
+      </body>
+
+      <!-- ============================================================= -->
+      <!-- FRONT LEFT LEG (FL)                                            -->
+      <!-- ============================================================= -->
+      <body name="FL_hip" pos="0.1805 0.047 0">
+        <joint name="FL_hip_joint" type="hinge" axis="1 0 0" range="-0.916 0.916"/>
+        <inertial pos="0 0 0" mass="0.696" diaginertia="0.000871 0.00173 0.00173"/>
+        <geom type="capsule" size="0.046 0.028" pos="0 0.08 0" quat="1 0 0 0"/>
+
+        <body name="FL_thigh" pos="0 0.0838 0">
+          <joint name="FL_thigh_joint" type="hinge" axis="0 1 0" range="-1.745 4.189"/>
+          <inertial pos="0 0 -0.1" mass="1.013" diaginertia="0.00550 0.00550 0.000589"/>
+          <geom type="capsule" size="0.034 0.1" pos="0 0 -0.1" quat="1 0 0 0" rgba="0.4 0.6 0.4 1"/>
+
+          <body name="FL_calf" pos="0 0 -0.2">
+            <joint name="FL_calf_joint" type="hinge" axis="0 1 0" range="-2.775 -0.646"/>
+            <inertial pos="0 0 -0.1" mass="0.226" diaginertia="0.000215 0.000215 0.0000135"/>
+            <geom type="capsule" size="0.022 0.1" pos="0 0 -0.1" rgba="0.2 0.2 0.5 1"/>
+            <geom name="FL_foot" type="sphere" size="0.022" pos="0 0 -0.2"
+                  rgba="0.9 0.3 0.3 1" condim="6"/>
+          </body>
+        </body>
+      </body>
+
+      <!-- ============================================================= -->
+      <!-- REAR RIGHT LEG (RR)                                            -->
+      <!-- ============================================================= -->
+      <body name="RR_hip" pos="-0.1805 -0.047 0">
+        <joint name="RR_hip_joint" type="hinge" axis="1 0 0" range="-0.916 0.916"/>
+        <inertial pos="0 0 0" mass="0.696" diaginertia="0.000871 0.00173 0.00173"/>
+        <geom type="capsule" size="0.046 0.028" pos="0 -0.08 0" quat="1 0 0 0"/>
+
+        <body name="RR_thigh" pos="0 -0.0838 0">
+          <joint name="RR_thigh_joint" type="hinge" axis="0 1 0" range="-1.745 4.189"/>
+          <inertial pos="0 0 -0.1" mass="1.013" diaginertia="0.00550 0.00550 0.000589"/>
+          <geom type="capsule" size="0.034 0.1" pos="0 0 -0.1" quat="1 0 0 0" rgba="0.4 0.6 0.4 1"/>
+
+          <body name="RR_calf" pos="0 0 -0.2">
+            <joint name="RR_calf_joint" type="hinge" axis="0 1 0" range="-2.775 -0.646"/>
+            <inertial pos="0 0 -0.1" mass="0.226" diaginertia="0.000215 0.000215 0.0000135"/>
+            <geom type="capsule" size="0.022 0.1" pos="0 0 -0.1" rgba="0.2 0.2 0.5 1"/>
+            <geom name="RR_foot" type="sphere" size="0.022" pos="0 0 -0.2"
+                  rgba="0.9 0.3 0.3 1" condim="6"/>
+          </body>
+        </body>
+      </body>
+
+      <!-- ============================================================= -->
+      <!-- REAR LEFT LEG (RL)                                             -->
+      <!-- ============================================================= -->
+      <body name="RL_hip" pos="-0.1805 0.047 0">
+        <joint name="RL_hip_joint" type="hinge" axis="1 0 0" range="-0.916 0.916"/>
+        <inertial pos="0 0 0" mass="0.696" diaginertia="0.000871 0.00173 0.00173"/>
+        <geom type="capsule" size="0.046 0.028" pos="0 0.08 0" quat="1 0 0 0"/>
+
+        <body name="RL_thigh" pos="0 0.0838 0">
+          <joint name="RL_thigh_joint" type="hinge" axis="0 1 0" range="-1.745 4.189"/>
+          <inertial pos="0 0 -0.1" mass="1.013" diaginertia="0.00550 0.00550 0.000589"/>
+          <geom type="capsule" size="0.034 0.1" pos="0 0 -0.1" quat="1 0 0 0" rgba="0.4 0.6 0.4 1"/>
+
+          <body name="RL_calf" pos="0 0 -0.2">
+            <joint name="RL_calf_joint" type="hinge" axis="0 1 0" range="-2.775 -0.646"/>
+            <inertial pos="0 0 -0.1" mass="0.226" diaginertia="0.000215 0.000215 0.0000135"/>
+            <geom type="capsule" size="0.022 0.1" pos="0 0 -0.1" rgba="0.2 0.2 0.5 1"/>
+            <geom name="RL_foot" type="sphere" size="0.022" pos="0 0 -0.2"
+                  rgba="0.9 0.3 0.3 1" condim="6"/>
+          </body>
+        </body>
+      </body>
+
+    </body> <!-- end base -->
+  </worldbody>
+
+  <!-- ================================================================= -->
+  <!-- ACTUATORS — one position/torque actuator per joint                  -->
+  <!-- ================================================================= -->
+  <actuator>
+    <motor name="FR_hip_motor"   joint="FR_hip_joint"/>
+    <motor name="FR_thigh_motor" joint="FR_thigh_joint"/>
+    <motor name="FR_calf_motor"  joint="FR_calf_joint"/>
+    <motor name="FL_hip_motor"   joint="FL_hip_joint"/>
+    <motor name="FL_thigh_motor" joint="FL_thigh_joint"/>
+    <motor name="FL_calf_motor"  joint="FL_calf_joint"/>
+    <motor name="RR_hip_motor"   joint="RR_hip_joint"/>
+    <motor name="RR_thigh_motor" joint="RR_thigh_joint"/>
+    <motor name="RR_calf_motor"  joint="RR_calf_joint"/>
+    <motor name="RL_hip_motor"   joint="RL_hip_joint"/>
+    <motor name="RL_thigh_motor" joint="RL_thigh_joint"/>
+    <motor name="RL_calf_motor"  joint="RL_calf_joint"/>
+  </actuator>
+
+  <!-- Optional sensors for debugging / logging -->
+  <sensor>
+    <gyro       name="imu_gyro"  site="imu"/>
+    <accelerometer name="imu_acc" site="imu"/>
+    <framequat  name="imu_quat"  objtype="site" objname="imu"/>
+  </sensor>
+
+</mujoco>
