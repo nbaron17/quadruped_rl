@@ -1,0 +1,173 @@
+<mujoco model="dog">
+  <compiler angle="radian" meshdir="meshes" autolimits="true"/>
+  <option timestep="0.004" gravity="0 0 -9.81" cone="elliptic" impratio="100"/>
+
+  <default>
+    <default class="dog">
+      <joint damping="0.5" armature="0.01" frictionloss="0.01"/>
+      <geom friction="0.8 0.02 0.01"/>
+      <default class="abduction">
+        <joint axis="1 0 0" range="-0.785 0.785"/>
+        <position kp="20" forcerange="-3 3" ctrlrange="-0.785 0.785"/>
+      </default>
+      <default class="hip">
+        <joint axis="0 1 0" range="-1.57 1.57"/>
+        <position kp="20" forcerange="-3 3" ctrlrange="-1.57 1.57"/>
+      </default>
+      <default class="knee">
+        <joint axis="0 1 0" range="-2.5 0.1"/>
+        <position kp="20" forcerange="-3 3" ctrlrange="-2.5 0.1"/>
+      </default>
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2"/>
+      </default>
+      <default class="foot_geom">
+        <geom type="sphere" size="0.02" condim="6" priority="1"
+              solimp="0.015 1 0.02" friction="0.8 0.02 0.01" rgba="0.9 0.3 0.3 1"/>
+      </default>
+    </default>
+  </default>
+
+  <asset>
+    <mesh name="base_link" file="base_link.stl"/>
+    <mesh name="coxa_fr"   file="coxa_fr.stl"/>
+    <mesh name="femur_fr"  file="femur_fr.stl"/>
+    <mesh name="tibia_fr"  file="tibia_fr.stl"/>
+    <mesh name="coxa_fl"   file="coxa_fl.stl"/>
+    <mesh name="femur_fl"  file="femur_fl.stl"/>
+    <mesh name="tibia_fl"  file="tibia_fl.stl"/>
+    <mesh name="coxa_br"   file="coxa_br.stl"/>
+    <mesh name="femur_br"  file="femur_br.stl"/>
+    <mesh name="tibia_br"  file="tibia_br.stl"/>
+    <mesh name="coxa_bl"   file="coxa_bl.stl"/>
+    <mesh name="femur_bl"  file="femur_bl.stl"/>
+    <mesh name="tibia_bl"  file="tibia_bl.stl"/>
+  </asset>
+
+  <worldbody>
+    <body name="base" pos="0 0 0.22" childclass="dog">
+      <freejoint/>
+      <inertial mass="1.131" pos="0.018 0.0002 0.007"
+                fullinertia="1.81e-3 6.34e-3 6.34e-3 -6.2e-7 -2.05e-4 -2.40e-6"/>
+      <geom class="visual" mesh="base_link" quat="0.5 0.5 -0.5 -0.5"/>
+
+      <!-- ========== FRONT RIGHT ========== -->
+      <body name="coxa_FR" pos="0 -0.04 0">
+        <joint class="abduction" name="coxaF_FR"/>
+        <inertial mass="0.068" pos="0.048 0 0" diaginertia="3.38e-5 2.56e-5 5.05e-5"/>
+        <geom class="visual" mesh="coxa_fr" pos="0 0.04 0" quat="0.5 0.5 -0.5 -0.5"/>
+        <body name="femur_FR" pos="0.095 0 0">
+          <joint class="hip" name="femurF_FR"/>
+          <inertial mass="0.076" pos="0 0 -0.05" diaginertia="6.85e-5 5.48e-5 2.05e-5"/>
+          <geom class="visual" mesh="femur_fr" pos="-0.095 0.04 0" quat="0.5 0.5 -0.5 -0.5"/>
+          <body name="tibia_FR" pos="0 0 -0.1">
+            <joint class="knee" name="tibiaF_FR"/>
+            <inertial mass="0.031" pos="0 0 -0.05" diaginertia="2.92e-5 2.90e-5 1.67e-6"/>
+            <geom class="visual" mesh="tibia_fr" pos="-0.095 0.04 0.1" quat="0.5 0.5 -0.5 -0.5"/>
+            <body name="foot_FR" pos="0 -0.04 -0.1">
+              <inertial mass="0.010" pos="0 0 0" diaginertia="7e-7 7e-7 7e-7"/>
+              <geom class="foot_geom" name="foot_FR"/>
+              <site name="foot_FR" pos="0 0 0" size="0.005"/>
+            </body>
+          </body>
+        </body>
+      </body>
+
+      <!-- ========== FRONT LEFT ========== -->
+      <body name="coxa_FL" pos="0 0.04 0">
+        <joint class="abduction" name="coxaF_FL"/>
+        <inertial mass="0.068" pos="0.048 0 0" diaginertia="3.38e-5 2.56e-5 5.05e-5"/>
+        <geom class="visual" mesh="coxa_fl" pos="0 -0.04 0" quat="0.5 0.5 -0.5 -0.5"/>
+        <body name="femur_FL" pos="0.095 0 0">
+          <joint class="hip" name="femurF_FL"/>
+          <inertial mass="0.076" pos="0 0 -0.05" diaginertia="6.85e-5 5.48e-5 2.05e-5"/>
+          <geom class="visual" mesh="femur_fl" pos="-0.095 -0.04 0" quat="0.5 0.5 -0.5 -0.5"/>
+          <body name="tibia_FL" pos="0 0 -0.1">
+            <joint class="knee" name="tibiaF_FL"/>
+            <inertial mass="0.031" pos="0 0 -0.05" diaginertia="2.92e-5 2.90e-5 1.67e-6"/>
+            <geom class="visual" mesh="tibia_fl" pos="-0.095 -0.04 0.1" quat="0.5 0.5 -0.5 -0.5"/>
+            <body name="foot_FL" pos="0 0.04 -0.1">
+              <inertial mass="0.010" pos="0 0 0" diaginertia="7e-7 7e-7 7e-7"/>
+              <geom class="foot_geom" name="foot_FL"/>
+              <site name="foot_FL" pos="0 0 0" size="0.005"/>
+            </body>
+          </body>
+        </body>
+      </body>
+
+      <!-- ========== BACK RIGHT ========== -->
+      <body name="coxa_BR" pos="0 -0.04 0">
+        <joint class="abduction" name="coxaF_BR"/>
+        <inertial mass="0.186" pos="-0.048 0 0" diaginertia="6.49e-5 4.62e-5 9.29e-5"/>
+        <geom class="visual" mesh="coxa_br" pos="0 0.04 0" quat="0.5 0.5 -0.5 -0.5"/>
+        <body name="femur_BR" pos="-0.095 0 0">
+          <joint class="hip" name="femurF_BR"/>
+          <inertial mass="0.077" pos="0 0 -0.05" diaginertia="6.89e-5 5.52e-5 2.05e-5"/>
+          <geom class="visual" mesh="femur_br" pos="0.095 0.04 0" quat="0.5 0.5 -0.5 -0.5"/>
+          <body name="tibia_BR" pos="0 0 -0.1">
+            <joint class="knee" name="tibiaF_BR"/>
+            <inertial mass="0.031" pos="0 0 -0.05" diaginertia="2.92e-5 2.90e-5 1.67e-6"/>
+            <geom class="visual" mesh="tibia_br" pos="0.095 0.04 0.1" quat="0.5 0.5 -0.5 -0.5"/>
+            <body name="foot_BR" pos="0 -0.04 -0.1">
+              <inertial mass="0.010" pos="0 0 0" diaginertia="7e-7 7e-7 7e-7"/>
+              <geom class="foot_geom" name="foot_BR"/>
+              <site name="foot_BR" pos="0 0 0" size="0.005"/>
+            </body>
+          </body>
+        </body>
+      </body>
+
+      <!-- ========== BACK LEFT ========== -->
+      <body name="coxa_BL" pos="0 0.04 0">
+        <joint class="abduction" name="coxaF_BL"/>
+        <inertial mass="0.082" pos="-0.048 0 0" diaginertia="4.25e-5 2.62e-5 5.77e-5"/>
+        <geom class="visual" mesh="coxa_bl" pos="0 -0.04 0" quat="0.5 0.5 -0.5 -0.5"/>
+        <body name="femur_BL" pos="-0.095 0 0">
+          <joint class="hip" name="femurF_BL"/>
+          <inertial mass="0.077" pos="0 0 -0.05" diaginertia="6.89e-5 5.52e-5 2.05e-5"/>
+          <geom class="visual" mesh="femur_bl" pos="0.095 -0.04 0" quat="0.5 0.5 -0.5 -0.5"/>
+          <body name="tibia_BL" pos="0 0 -0.1">
+            <joint class="knee" name="tibiaF_BL"/>
+            <inertial mass="0.031" pos="0 0 -0.05" diaginertia="2.92e-5 2.90e-5 1.67e-6"/>
+            <geom class="visual" mesh="tibia_bl" pos="0.095 -0.04 0.1" quat="0.5 0.5 -0.5 -0.5"/>
+            <body name="foot_BL" pos="0 0.04 -0.1">
+              <inertial mass="0.010" pos="0 0 0" diaginertia="7e-7 7e-7 7e-7"/>
+              <geom class="foot_geom" name="foot_BL"/>
+              <site name="foot_BL" pos="0 0 0" size="0.005"/>
+            </body>
+          </body>
+        </body>
+      </body>
+
+    </body>
+  </worldbody>
+
+  <actuator>
+    <position class="abduction" name="coxaF_FR" joint="coxaF_FR"/>
+    <position class="hip"       name="femurF_FR" joint="femurF_FR"/>
+    <position class="knee"      name="tibiaF_FR" joint="tibiaF_FR"/>
+    <position class="abduction" name="coxaF_FL" joint="coxaF_FL"/>
+    <position class="hip"       name="femurF_FL" joint="femurF_FL"/>
+    <position class="knee"      name="tibiaF_FL" joint="tibiaF_FL"/>
+    <position class="abduction" name="coxaF_BR" joint="coxaF_BR"/>
+    <position class="hip"       name="femurF_BR" joint="femurF_BR"/>
+    <position class="knee"      name="tibiaF_BR" joint="tibiaF_BR"/>
+    <position class="abduction" name="coxaF_BL" joint="coxaF_BL"/>
+    <position class="hip"       name="femurF_BL" joint="femurF_BL"/>
+    <position class="knee"      name="tibiaF_BL" joint="tibiaF_BL"/>
+  </actuator>
+
+  <keyframe>
+    <key name="home"
+         qpos="0 0 0.159 1 0 0 0
+               0  0.785 -1.6
+               0  0.785 -1.6
+               0  0.785 -1.6
+               0  0.785 -1.6"
+         ctrl="0  0.785 -1.6
+               0  0.785 -1.6
+               0  0.785 -1.6
+               0  0.785 -1.6"/>
+  </keyframe>
+
+</mujoco>
