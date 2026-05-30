@@ -55,9 +55,9 @@ class SharedCommand:
 
     def set(self, vx, vy, yaw):
         with self._lock:
-            self._vx  = float(np.clip(vx,  *CMD_VX_RANGE))
-            self._vy  = float(np.clip(vy,  *CMD_VY_RANGE))
-            self._yaw = float(np.clip(yaw, *CMD_YAW_RANGE))
+            self._vx  = float(vx)
+            self._vy  = float(vy)
+            self._yaw = float(yaw)
 
     def get(self):
         with self._lock:
@@ -91,7 +91,7 @@ def run_keyboard_thread(shared: SharedCommand):
     # Track which keys are currently held down
     pressed = set()
 
-    VX_STEP  = 0.2
+    VX_STEP  = 0.75   # within trained range (0.5–1.0)
     VY_STEP  = 0.2
     YAW_STEP = 0.3
 

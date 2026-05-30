@@ -45,8 +45,10 @@ def evaluate(args):
 
     env = DummyVecEnv([make_env])
 
-    # Try to load VecNormalize stats (may not exist for older checkpoints)
+    # Try to load VecNormalize stats — check both naming conventions
     norm_path = model_path.replace(".zip", "_vecnorm.pkl")
+    if not os.path.exists(norm_path):
+        norm_path = model_path.replace(".zip", "vecnorm.pkl")
     if os.path.exists(norm_path):
         print(f"Loading VecNormalize stats: {norm_path}")
         env = VecNormalize.load(norm_path, env)

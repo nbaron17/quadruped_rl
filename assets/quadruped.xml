@@ -138,7 +138,7 @@
   </worldbody>
 
   <!-- ================================================================= -->
-  <!-- ACTUATORS — one position/torque actuator per joint                  -->
+  <!-- ACTUATORS â€” one position/torque actuator per joint                  -->
   <!-- ================================================================= -->
   <actuator>
     <motor name="FR_hip_motor"   joint="FR_hip_joint"/>

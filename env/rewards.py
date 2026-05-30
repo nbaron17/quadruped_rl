@@ -19,22 +19,21 @@ import mujoco
 def linear_velocity_tracking(
     base_lin_vel: np.ndarray,
     cmd: np.ndarray,
-    sigma: float = 0.25,
+    sigma_vx: float = 0.5,
+    sigma_vy: float = 0.5,
 ) -> float:
     """
-    Gaussian reward for matching commanded (vx, vy).
+    Separate Gaussian rewards for vx and vy tracking, averaged together.
 
-    Using a Gaussian instead of absolute error keeps the reward smooth and
-    bounded in [0, 1], which helps PPO training stability.
-
-    Parameters
-    ----------
-    base_lin_vel : (3,) array  world-frame base linear velocity
-    cmd          : (3,) array  [vx, vy, yaw_rate]
-    sigma        : width of the Gaussian kernel (tune to tighten/loosen tracking)
+    Splitting vx and vy means lateral accuracy gets its own gradient signal
+    rather than being drowned out by the larger forward error.
     """
-    error = np.sum((base_lin_vel[:2] - cmd[:2]) ** 2)
-    return float(np.exp(-error / sigma**2))
+    error_vx = (base_lin_vel[0] - cmd[0]) ** 2
+    error_vy = (base_lin_vel[1] - cmd[1]) ** 2
+    reward_vx = np.exp(-error_vx / sigma_vx**2)
+    reward_vy = np.exp(-error_vy / sigma_vy**2)
+    # Weight vx much higher — lateral is harder and less critical early on
+    return float((2.0 * reward_vx + 0.25 * reward_vy) / 2.25)
 
 
 def yaw_rate_tracking(
@@ -112,40 +111,44 @@ def action_smoothness_penalty(action: np.ndarray, prev_action: np.ndarray) -> fl
     return float(np.sum((action - prev_action) ** 2))
 
 
+def pose_regularisation(
+    joint_pos: np.ndarray,
+    default_pos: np.ndarray,
+) -> float:
+    """Penalise deviation from default standing pose — keeps stance natural."""
+    return float(np.sum((joint_pos - default_pos) ** 2))
+
+
 def foot_slip_penalty(
     model: mujoco.MjModel,
     data: mujoco.MjData,
-    foot_geom_names: list[str],
+    foot_body_names: list[str],
 ) -> float:
     """
     Penalise feet that are in contact with the ground but sliding.
 
-    For each foot geom in contact, accumulates the squared lateral velocity
-    of the contact point.  Zero penalty when feet are either airborne or
-    stationary.
+    Detects contact by calf body name (works with unnamed foot geoms in the
+    Menagerie A1 model).  Accumulates squared lateral velocity for each foot
+    body in contact.
 
     Parameters
     ----------
-    foot_geom_names : list of geom names that correspond to foot contacts
+    foot_body_names : list of body names for the four calf/foot bodies
     """
     penalty = 0.0
 
-    # Build a set of geom IDs we care about
-    foot_ids = set(
-        mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, name)
-        for name in foot_geom_names
-    )
+    foot_body_ids = {
+        mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, name)
+        for name in foot_body_names
+    }
 
     for i in range(data.ncon):
         contact = data.contact[i]
-        if contact.geom1 in foot_ids or contact.geom2 in foot_ids:
-            # Get the body attached to the foot geom
-            geom_id = contact.geom1 if contact.geom1 in foot_ids else contact.geom2
-            body_id = model.geom_bodyid[geom_id]
-
-            # Linear velocity of the body in world frame
-            vel = data.cvel[body_id][:3]   # [vx, vy, vz]
-            # Penalise lateral (xy) slip only
+        body1 = model.geom_bodyid[contact.geom1]
+        body2 = model.geom_bodyid[contact.geom2]
+        if body1 in foot_body_ids or body2 in foot_body_ids:
+            body_id = body1 if body1 in foot_body_ids else body2
+            vel = data.cvel[body_id][:3]   # [vx, vy, vz] world frame
             penalty += float(vel[0] ** 2 + vel[1] ** 2)
 
     return penalty

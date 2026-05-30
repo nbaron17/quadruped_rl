@@ -26,6 +26,7 @@ Action vector (12 dims)
 
 import numpy as np
 import mujoco
+import mujoco.viewer
 import gymnasium as gym
 from gymnasium import spaces
 
@@ -59,6 +60,7 @@ from env.rewards import (
     torque_penalty,
     action_smoothness_penalty,
     foot_slip_penalty,
+    pose_regularisation,
 )
 
 
@@ -76,7 +78,8 @@ class QuadrupedEnv(gym.Env):
 
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 50}
 
-    def __init__(self, render_mode: str | None = None):
+    def __init__(self, render_mode: str | None = None,
+                 cmd_vx_range=None, cmd_vy_range=None, cmd_yaw_range=None):
         super().__init__()
 
         self.render_mode = render_mode
@@ -84,13 +87,17 @@ class QuadrupedEnv(gym.Env):
         # ------------------------------------------------------------------ #
         # Load MuJoCo model
         # ------------------------------------------------------------------ #
-        if not os.path.exists(ROBOT_XML_PATH):
+        # Prefer scene.xml (includes floor) over the bare robot XML
+        scene_path = os.path.join(os.path.dirname(ROBOT_XML_PATH), "scene.xml")
+        xml_path = scene_path if os.path.exists(scene_path) else ROBOT_XML_PATH
+
+        if not os.path.exists(xml_path):
             raise FileNotFoundError(
-                f"Robot MJCF not found at: {ROBOT_XML_PATH}\n"
+                f"Robot MJCF not found at: {xml_path}\n"
                 "Run `python assets/generate_model.py` or place your own MJCF there."
             )
 
-        self.model = mujoco.MjModel.from_xml_path(ROBOT_XML_PATH)
+        self.model = mujoco.MjModel.from_xml_path(xml_path)
         self.data  = mujoco.MjData(self.model)
 
         # ------------------------------------------------------------------ #
@@ -111,7 +118,7 @@ class QuadrupedEnv(gym.Env):
         # ------------------------------------------------------------------ #
         # Sub-modules
         # ------------------------------------------------------------------ #
-        self.cmd_sampler = CommandSampler()
+        self.cmd_sampler = CommandSampler(cmd_vx_range, cmd_vy_range, cmd_yaw_range)
         self.controller  = PDController(self.model, self.data)
 
         # ------------------------------------------------------------------ #
@@ -126,11 +133,8 @@ class QuadrupedEnv(gym.Env):
             for name in JOINT_NAMES
         ]
 
-        # Cache foot geom names for slip penalty (update if your model differs)
-        self._foot_geom_names = ["FR_foot", "FL_foot", "RR_foot", "RL_foot"]
-
-        # Cache the base body ID (assumed to be body 1 = root floating body)
-        self._base_body_id = 1  # root body index in most MJCF models
+        # Calf body names used by foot_slip_penalty (geoms are unnamed in the A1 model)
+        self._foot_body_names = ["FR_calf", "FL_calf", "RR_calf", "RL_calf"]
 
         # ------------------------------------------------------------------ #
         # Viewer (created lazily on first render call)
@@ -193,10 +197,15 @@ class QuadrupedEnv(gym.Env):
         self._prev_action = action.copy()
 
         # Debug info dict (useful for TensorBoard custom logging)
+        base_quat = self.data.qpos[3:7].copy()
+        actual_vel = self._world_to_body_vec(base_quat, self.data.qvel[:3].copy())
+
         info = {
             "reward_breakdown": reward_info,
             "base_height":      float(self.data.qpos[2]),
             "cmd":              self.cmd_sampler.get().tolist(),
+            "actual_vel":       actual_vel[:2].tolist(),       # [vx, vy] body frame
+            "actual_yaw_rate":  float(self.data.qvel[5]),      # world-frame yaw rate
         }
 
         if self.render_mode == "human":
@@ -290,8 +299,10 @@ class QuadrupedEnv(gym.Env):
         """
         cmd = self.cmd_sampler.get()
 
-        # Base linear and angular velocity in world frame
-        base_lin_vel = self.data.qvel[:3].copy()
+        # Velocities — convert linear velocity to body frame so the command
+        # "move forward" means forward relative to the robot, not the world
+        base_quat    = self.data.qpos[3:7].copy()
+        base_lin_vel = self._world_to_body_vec(base_quat, self.data.qvel[:3].copy())
         base_ang_vel = self.data.qvel[3:6].copy()
         base_height  = float(self.data.qpos[2])
 
@@ -299,8 +310,8 @@ class QuadrupedEnv(gym.Env):
         base_quat   = self.data.qpos[3:7].copy()
         grav_body   = self._world_to_body_vec(base_quat, np.array([0.0, 0.0, -1.0]))
 
-        # Applied torques = ctrl array (set by PDController.apply)
-        torques = self.data.ctrl.copy()
+        # Actual torques produced by the position actuators
+        torques = self.data.actuator_force.copy()
 
         terms = {
             "lin_vel_tracking":   linear_velocity_tracking(base_lin_vel, cmd),
@@ -310,7 +321,11 @@ class QuadrupedEnv(gym.Env):
             "torque_penalty":     torque_penalty(torques),
             "action_smoothness":  action_smoothness_penalty(action, self._prev_action),
             "foot_slip":          foot_slip_penalty(
-                                    self.model, self.data, self._foot_geom_names
+                                    self.model, self.data, self._foot_body_names
+                                  ),
+            "pose_regularisation": pose_regularisation(
+                                    self._get_joint_positions(),
+                                    np.array(DEFAULT_JOINT_POS, dtype=np.float32),
                                   ),
         }
 

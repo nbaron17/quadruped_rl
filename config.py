@@ -13,10 +13,9 @@ import os
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
-# Path to the MJCF robot model.
-# We ship a simple 12-DOF "go1-style" model under assets/.
-# Swap this path to use a different robot (e.g. full Unitree A1 from mujoco_menagerie).
-ROBOT_XML_PATH = os.path.join(PROJECT_ROOT, "assets", "quadruped.xml")
+# Path to the Unitree A1 robot XML — the env will prefer scene.xml (floor + lighting)
+# from the same directory if it exists.
+ROBOT_XML_PATH = os.path.join(PROJECT_ROOT, "..", "mujoco_menagerie", "unitree_a1", "a1.xml")
 
 # Where trained models are saved
 MODEL_SAVE_DIR = os.path.join(PROJECT_ROOT, "models")
@@ -49,20 +48,20 @@ JOINT_NAMES = [
 ]
 
 # Default standing pose (joint positions in radians, matching JOINT_NAMES order).
-# These are the "neutral" angles the robot returns to when actions = 0.
+# Taken from the "home" keyframe in the MuJoCo Menagerie A1 model.
 DEFAULT_JOINT_POS = [
-    0.0,  0.8, -1.5,   # FR
-    0.0,  0.8, -1.5,   # FL
-    0.0,  0.8, -1.5,   # RR
-    0.0,  0.8, -1.5,   # RL
+    0.0,  0.9, -1.8,   # FR
+    0.0,  0.9, -1.8,   # FL
+    0.0,  0.9, -1.8,   # RR
+    0.0,  0.9, -1.8,   # RL
 ]
 
-# PD control gains applied to joint position offsets (action → torque).
-KP = 20.0   # Position gain  [Nm/rad]
-KD = 0.5    # Velocity gain  [Nm·s/rad]
-
-# Max torque clamp (safety)
-TORQUE_LIMIT = 33.5  # [Nm]  (Unitree A1 spec)
+# The menagerie A1 uses built-in position actuators (kp=100, joint damping=1–2).
+# KP / KD / TORQUE_LIMIT are kept here for reference but are not used by the
+# controller — they are embedded in the MJCF itself.
+KP = 100.0
+KD = 2.0
+TORQUE_LIMIT = 33.5  # [Nm]  (enforced by actuator forcerange in the MJCF)
 
 
 # ---------------------------------------------------------------------------
@@ -103,12 +102,21 @@ ACTION_CLIP = 1.0            # clip raw network output to [-1, 1]
 # Commands (velocity targets sampled during training)
 # ---------------------------------------------------------------------------
 
-CMD_VX_RANGE   = (-1.0, 1.0)   # forward / backward  [m/s]
-CMD_VY_RANGE   = (-0.5, 0.5)   # lateral             [m/s]
-CMD_YAW_RANGE  = (-1.0, 1.0)   # yaw rate            [rad/s]
+CMD_VX_RANGE   = (0.3, 1.0)
+CMD_VY_RANGE   = (-0.05, 0.05)   # very small lateral nudge
+CMD_YAW_RANGE  = (0.0, 0.0)
 
 # How often (in seconds) commands are re-sampled during training
 CMD_RESAMPLE_INTERVAL = 5.0    # seconds
+
+# Curriculum phases — pass --phase N to train.py to select one
+CURRICULUM_PHASES = {
+    1: dict(vx=(0.5,  1.0), vy=(0.0,  0.0),  yaw=(0.0,  0.0)),   # forward only
+    2: dict(vx=(0.3,  1.0), vy=(0.0,  0.0),  yaw=(-0.5, 0.5)),   # add yaw
+    3: dict(vx=(0.3,  1.0), vy=(-0.1, 0.1),  yaw=(-0.5, 0.5)),   # add small lateral
+    4: dict(vx=(0.3,  1.0), vy=(-0.3, 0.3),  yaw=(-1.0, 1.0)),   # expand both
+    5: dict(vx=(-1.0, 1.0), vy=(-0.5, 0.5),  yaw=(-1.0, 1.0)),   # full range
+}
 
 
 # ---------------------------------------------------------------------------
@@ -116,22 +124,18 @@ CMD_RESAMPLE_INTERVAL = 5.0    # seconds
 # ---------------------------------------------------------------------------
 
 REWARD_WEIGHTS = {
-    # Tracking — encourage matching commanded velocity
-    "lin_vel_tracking":   1.0,    # reward for vx/vy tracking
-    "yaw_rate_tracking":  0.5,    # reward for yaw rate tracking
-
-    # Posture
-    "upright":            0.2,    # penalise tilt
-    "base_height":        0.1,    # reward target height
-
-    # Efficiency / smoothness (penalties, should be negative-weighted)
-    "torque_penalty":    -0.0002,  # penalise large torques
-    "action_smoothness": -0.01,   # penalise large Δaction
-    "foot_slip":         -0.1,    # penalise feet sliding while in contact
+    "lin_vel_tracking":   3.0,
+    "yaw_rate_tracking":  1.0,
+    "upright":            0.5,
+    "base_height":        0.2,
+    "torque_penalty":     -0.00002,
+    "action_smoothness":  -0.01,
+    "foot_slip":          -0.05,
+    "pose_regularisation": -0.01,  # keep stance natural
 }
 
-# Target base height above ground [m]
-TARGET_BASE_HEIGHT = 0.28
+# Target base height above ground [m] — matches the A1 "home" keyframe
+TARGET_BASE_HEIGHT = 0.27
 
 
 # ---------------------------------------------------------------------------
@@ -162,7 +166,7 @@ PPO_CONFIG = {
     "verbose":          1,
 }
 
-TOTAL_TIMESTEPS = 10_000_000    # total env steps to train for
+TOTAL_TIMESTEPS = 20_000_000    # total env steps to train for
 SAVE_EVERY_STEPS = 500_000      # save a checkpoint every N steps
 EVAL_EPISODES = 10              # episodes per evaluation callback run
 N_ENVS = 4                      # number of parallel training environments

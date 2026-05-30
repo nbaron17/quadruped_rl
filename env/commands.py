@@ -24,7 +24,10 @@ class CommandSampler:
     time to resample.  Call `get()` to read the current command vector.
     """
 
-    def __init__(self):
+    def __init__(self, vx_range=None, vy_range=None, yaw_range=None):
+        self._vx_range  = vx_range  or CMD_VX_RANGE
+        self._vy_range  = vy_range  or CMD_VY_RANGE
+        self._yaw_range = yaw_range or CMD_YAW_RANGE
         # Steps between command resamples
         self._resample_steps = int(CMD_RESAMPLE_INTERVAL / CONTROL_DT)
         self._step_counter = 0
@@ -34,9 +37,9 @@ class CommandSampler:
     # ------------------------------------------------------------------
     def resample(self):
         """Draw a new random command from the configured ranges."""
-        self._cmd[0] = np.random.uniform(*CMD_VX_RANGE)    # forward vel
-        self._cmd[1] = np.random.uniform(*CMD_VY_RANGE)    # lateral vel
-        self._cmd[2] = np.random.uniform(*CMD_YAW_RANGE)   # yaw rate
+        self._cmd[0] = np.random.uniform(*self._vx_range)
+        self._cmd[1] = np.random.uniform(*self._vy_range)
+        self._cmd[2] = np.random.uniform(*self._yaw_range)
 
     def step(self):
         """Advance internal counter; resample when interval expires."""
