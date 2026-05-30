@@ -47,6 +47,7 @@
   <worldbody>
     <body name="base" pos="0 0 0.22" childclass="dog">
       <freejoint/>
+      <site name="imu" pos="0 0 0"/>
       <inertial mass="1.131" pos="0.018 0.0002 0.007"
                 fullinertia="1.81e-3 6.34e-3 6.34e-3 -6.2e-7 -2.05e-4 -2.40e-6"/>
       <geom class="visual" mesh="base_link" quat="0.5 0.5 -0.5 -0.5"/>
@@ -169,5 +170,28 @@
                0  0.785 -1.6
                0  0.785 -1.6"/>
   </keyframe>
+
+  <!-- Sensors read by the MJX joystick environment.
+       Contact sensors (which need the floor geom) live in dog_scene.xml. -->
+  <sensor>
+    <gyro          site="imu" name="gyro"/>
+    <velocimeter   site="imu" name="local_linvel"/>
+    <accelerometer site="imu" name="accelerometer"/>
+    <framezaxis    objtype="site" objname="imu" name="upvector"/>
+    <framexaxis    objtype="site" objname="imu" name="forwardvector"/>
+    <framelinvel   objtype="site" objname="imu" name="global_linvel"/>
+    <frameangvel   objtype="site" objname="imu" name="global_angvel"/>
+    <framequat     objtype="site" objname="imu" name="orientation"/>
+
+    <framelinvel objtype="site" objname="foot_FR" name="foot_FR_global_linvel"/>
+    <framelinvel objtype="site" objname="foot_FL" name="foot_FL_global_linvel"/>
+    <framelinvel objtype="site" objname="foot_BR" name="foot_BR_global_linvel"/>
+    <framelinvel objtype="site" objname="foot_BL" name="foot_BL_global_linvel"/>
+
+    <framepos objtype="site" objname="foot_FR" name="foot_FR_pos" reftype="site" refname="imu"/>
+    <framepos objtype="site" objname="foot_FL" name="foot_FL_pos" reftype="site" refname="imu"/>
+    <framepos objtype="site" objname="foot_BR" name="foot_BR_pos" reftype="site" refname="imu"/>
+    <framepos objtype="site" objname="foot_BL" name="foot_BL_pos" reftype="site" refname="imu"/>
+  </sensor>
 
 </mujoco>
