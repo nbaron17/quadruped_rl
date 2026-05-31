@@ -1,6 +1,12 @@
 <mujoco model="dog">
   <compiler angle="radian" meshdir="meshes" autolimits="true"/>
-  <option timestep="0.004" gravity="0 0 -9.81" cone="elliptic" impratio="100"/>
+  <!-- Solver settings tuned for MJX (match Go1): few solver iterations,
+       Euler integrator. MJX runs a fixed iteration count every step, so the
+       CPU defaults (iterations=100, ls_iterations=50) are ~100x too expensive. -->
+  <option timestep="0.004" gravity="0 0 -9.81"
+          iterations="1" ls_iterations="5" integrator="Euler">
+    <flag eulerdamp="disable"/>
+  </option>
 
   <default>
     <default class="dog">
