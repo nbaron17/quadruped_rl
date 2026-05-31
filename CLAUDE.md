@@ -41,8 +41,18 @@ cd ../mujoco_menagerie && git sparse-checkout set unitree_a1
 | `train.py` | PPO training script — SubprocVecEnv, VecNormalize, checkpoints, TensorBoard |
 | `eval.py` | Load checkpoint and visualise in MuJoCo passive viewer |
 | `watch_training.py` | Watch a checkpoint mid-training — shows commanded vs actual velocity live |
-| `view.py` | Simple viewer — runs env with random actions to verify joints move |
-| `joystick_control.py` | Real-time keyboard (pynput) or gamepad (pygame) control |
+| `view.py` | Simple viewer — `python view.py` (A1 random actions) or `python view.py --dog` (custom dog model) |
+| `joystick_control.py` | Real-time keyboard/gamepad control of the **SB3 A1** policy |
+
+### JAX/MJX Dog Pipeline (the faster, current direction)
+
+| File | Purpose |
+|------|---------|
+| `assets/dog.xml` / `dog_scene.xml` | Custom 12-DOF dog quadruped (converted from `dog.urdf` + Fusion360 meshes), 2 kg, position actuators (Kp=20). Has MJX sensors + foot/floor contact sensors. |
+| `assets/dog.urdf`, `assets/meshes/` | Original URDF source + STL meshes |
+| `dog_locomotion.ipynb` | **Colab notebook** — trains the dog with JAX/MJX + Brax PPO (port of Playground's Go1 joystick task). ~minutes on a GPU vs hours for SB3. |
+| `dog_joystick.py` | Real-time **keyboard** control of the trained dog policy (loads `dog_policy`) |
+| `dog_policy` | Exported Brax policy params (gitignored — local only) |
 
 ## Running Things
 
@@ -140,6 +150,43 @@ vx/vy/yaw policy in 7 minutes while this project takes hours per curriculum phas
 
 If extending this project, consider porting to JAX/MJX. See `TRAINING_GUIDE.md` for
 a detailed comparison.
+
+## Custom Dog — JAX/MJX Pipeline
+
+The custom dog quadruped (`assets/dog.xml`) is trained via `dog_locomotion.ipynb`
+on Colab using JAX/MJX + Brax PPO — a self-contained port of Playground's
+`Go1JoystickFlatTerrain`. Train on Colab, export the policy, then drive it locally
+with `dog_joystick.py`.
+
+**Hard-won gotchas (all cost real debugging time):**
+
+- **MJX solver settings are everything for speed.** `dog.xml` must set
+  `iterations="1" ls_iterations="5"` + `integrator="Euler"`. MJX runs a *fixed*
+  iteration count every step, so MuJoCo's CPU defaults (iterations=100,
+  ls_iterations=50) are ~100× too expensive. This was the single biggest speed bug.
+- **Match Go1's buffer caps:** `impl="jax"`, `naconmax`, `njmax` capped small (the
+  dog only has 4 foot-sphere contacts). Uncapped defaults are slower to compile/step.
+- **Brax saves the observation normalizer separately from the network weights.**
+  When reconstructing inference locally, rebuild the network with
+  `preprocess_observations_fn=running_statistics.normalize` — otherwise the policy
+  gets raw (unnormalized) observations, stays upright but tracks commands poorly /
+  backwards. This is the #1 deployment trap for Brax policies.
+- **Observation order must match `_get_obs` exactly:**
+  `[local_linvel, gyro, gravity, qpos[7:]−default, qvel[6:], last_act, command]` = 48.
+- Local inference needs `pip install "jax[cpu]" brax` (CPU is plenty for a tiny MLP
+  at 50 Hz). Installing brax upgrades `mujoco` (3.8 → 3.9), which is compatible.
+
+## Running the Dog
+
+```bash
+# View the dog model (static)
+python view.py --dog
+
+# Drive the trained policy with the keyboard (after exporting dog_policy from Colab)
+python dog_joystick.py
+#   Arrows = move, ,/. = turn, Space = stop, R = reset, Esc = quit
+#   Holds standing pose at zero command by default (--no-hold-still to disable)
+```
 
 ## Important Notes
 

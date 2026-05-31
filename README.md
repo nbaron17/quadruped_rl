@@ -1,6 +1,13 @@
 # Quadruped RL — Locomotion with MuJoCo + PPO
 
-Train a 12-DOF quadruped robot (Unitree A1) to walk in simulation, then drive it live with a keyboard or gamepad.
+Train a 12-DOF quadruped to walk in simulation, then drive it live with the keyboard.
+
+This repo has **two tracks**:
+1. **Unitree A1 + Stable-Baselines3 (CPU)** — the original pipeline; good for learning the
+   fundamentals from scratch, but slow (hours per curriculum phase).
+2. **Custom dog + JAX/MJX + Brax PPO (GPU)** — a custom 12-DOF robot (converted from a
+   Fusion360 URDF) trained in a Colab notebook in minutes, then driven locally with the
+   keyboard. See [Custom Dog](#custom-dog--jaxmjx) below.
 
 ---
 
@@ -21,8 +28,12 @@ quadruped_rl/
 ├── train.py               # PPO training script
 ├── eval.py                # Load & visualise a trained policy
 ├── watch_training.py      # Watch a checkpoint mid-training
-├── view.py                # Simple viewer with random actions
-├── joystick_control.py    # Real-time keyboard / gamepad control
+├── view.py                # Viewer: `python view.py` (A1) or `python view.py --dog`
+├── joystick_control.py    # Keyboard/gamepad control of the SB3 A1 policy
+│
+├── dog_locomotion.ipynb   # Colab notebook: train the custom dog (JAX/MJX + Brax PPO)
+├── dog_joystick.py        # Keyboard control of the trained dog policy
+├── assets/dog.xml         # Custom dog MJCF (+ dog_scene.xml, dog.urdf, meshes/)
 └── requirements.txt
 ```
 
@@ -200,6 +211,53 @@ DeepMind's [MuJoCo Playground](https://github.com/google-deepmind/mujoco_playgro
 **For a new project, start with MuJoCo Playground.** The `Go1JoystickFlatTerrain`
 environment is the closest equivalent and trains in ~7 minutes on an RTX 4090.
 This repo is useful for understanding the fundamentals of quadruped RL from scratch.
+
+---
+
+## Custom Dog — JAX/MJX
+
+A custom 12-DOF quadruped (converted from a Fusion360 `dog.urdf`, 2 kg, position
+actuators) trained with the fast JAX/MJX + Brax PPO stack.
+
+### Train (Colab)
+
+Open `dog_locomotion.ipynb` in Colab (GPU runtime). It installs JAX/MuJoCo/Playground,
+clones this repo for the model + meshes, defines a self-contained `DogJoystickEnv`
+(a port of Playground's Go1 joystick task), trains, and renders a rollout. Export the
+policy at the end:
+
+```python
+from brax.io import model
+model.save_params('dog_policy', params)
+from google.colab import files; files.download('dog_policy')
+```
+
+### Drive it locally with the keyboard
+
+```bash
+pip install "jax[cpu]" brax     # one-time; CPU is plenty for a tiny MLP at 50 Hz
+python dog_joystick.py          # place dog_policy in the repo root first
+```
+
+| Key | Action |
+|-----|--------|
+| ↑ / ↓ | forward / back |
+| ← / → | strafe left / right |
+| , / . | turn left / right |
+| Space | stop · **R** reset · **Esc** quit |
+
+At zero command the robot holds its standing pose (no idle jitter); pass
+`--no-hold-still` to always run the policy.
+
+### Gotchas worth knowing
+
+- **MJX solver settings dominate speed.** `dog.xml` sets `iterations="1"
+  ls_iterations="5"` + Euler. MJX runs a fixed iteration count per step, so MuJoCo's
+  CPU defaults (100 / 50) are ~100× too slow. This was the biggest performance bug.
+- **Brax stores the observation normalizer separately from the weights.** Rebuild
+  inference with `preprocess_observations_fn=running_statistics.normalize`, or the
+  policy gets raw observations and tracks commands poorly (it'll still stand upright,
+  which makes the bug sneaky). This is the #1 Brax deployment trap.
 
 ---
 
