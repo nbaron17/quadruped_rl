@@ -1,5 +1,7 @@
 # Quadruped RL — Locomotion with MuJoCo + PPO
 
+![Custom dog walking under keyboard control](dog.gif)
+
 Train a 12-DOF quadruped to walk in simulation, then drive it live with the keyboard.
 
 This repo has **two tracks**:
